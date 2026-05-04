@@ -645,7 +645,7 @@ export default function App() {
         width: "100vw",
         height: "100vh",
         display: "block",
-        cursor: "none",
+        cursor: "crosshair",
       }}
     />
   );
