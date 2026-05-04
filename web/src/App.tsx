@@ -418,37 +418,44 @@ export default function App() {
       const camX = game.camera.x - w / 2;
       const camY = game.camera.y - h / 2;
 
-      // Clear
-      ctx.fillStyle = "#0a0a0a";
+      // Background gradient
+      const bgGrad = ctx.createRadialGradient(w / 2, h / 2, 0, w / 2, h / 2, w * 0.8);
+      bgGrad.addColorStop(0, "#0d1117");
+      bgGrad.addColorStop(1, "#010409");
+      ctx.fillStyle = bgGrad;
       ctx.fillRect(0, 0, w, h);
 
-      // Grid
-      ctx.strokeStyle = "rgba(255,255,255,0.03)";
-      ctx.lineWidth = 1;
-      const gridSize = 50;
+      // Hex grid pattern
+      ctx.strokeStyle = "rgba(100,180,255,0.04)";
+      ctx.lineWidth = 0.5;
+      const gridSize = 60;
       const startX = -((camX % gridSize) + gridSize) % gridSize;
-      const startY = -((camY % gridSize) + gridSize) % gridSize;
-      for (let x = startX; x < w; x += gridSize) {
-        ctx.beginPath();
-        ctx.moveTo(x, 0);
-        ctx.lineTo(x, h);
-        ctx.stroke();
-      }
-      for (let y = startY; y < h; y += gridSize) {
-        ctx.beginPath();
-        ctx.moveTo(0, y);
-        ctx.lineTo(w, y);
-        ctx.stroke();
+      const startY = -((camY % (gridSize * 0.866)) + gridSize * 0.866) % (gridSize * 0.866);
+      for (let y = startY; y < h + gridSize; y += gridSize * 0.866) {
+        const rowOffset = (Math.round((y + camY) / (gridSize * 0.866)) % 2) * (gridSize / 2);
+        for (let x = startX - gridSize + rowOffset; x < w + gridSize; x += gridSize) {
+          ctx.beginPath();
+          for (let i = 0; i < 6; i++) {
+            const a = (Math.PI / 3) * i - Math.PI / 6;
+            const px = x + Math.cos(a) * (gridSize * 0.35);
+            const py = y + Math.sin(a) * (gridSize * 0.35);
+            i === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
+          }
+          ctx.closePath();
+          ctx.stroke();
+        }
       }
 
-      // Arena boundary circle
+      // Arena boundary — glowing ring
       const centerScreenX = WORLD_RADIUS - camX;
       const centerScreenY = WORLD_RADIUS - camY;
-      ctx.beginPath();
-      ctx.arc(centerScreenX, centerScreenY, WORLD_RADIUS, 0, Math.PI * 2);
-      ctx.strokeStyle = "rgba(255,50,50,0.3)";
-      ctx.lineWidth = 3;
-      ctx.stroke();
+      for (let i = 3; i >= 0; i--) {
+        ctx.beginPath();
+        ctx.arc(centerScreenX, centerScreenY, WORLD_RADIUS + i * 4, 0, Math.PI * 2);
+        ctx.strokeStyle = `rgba(255,60,60,${0.08 + i * 0.05})`;
+        ctx.lineWidth = 2;
+        ctx.stroke();
+      }
 
       // Viewport bounds for culling
       const vpLeft = camX - 50;
@@ -456,99 +463,178 @@ export default function App() {
       const vpTop = camY - 50;
       const vpBottom = camY + h + 50;
 
-      // Food
+      // Food with glow
       for (const f of game.food) {
         if (f.x < vpLeft || f.x > vpRight || f.y < vpTop || f.y > vpBottom) continue;
         const sx = f.x - camX;
         const sy = f.y - camY;
+        // Outer glow
+        const glow = ctx.createRadialGradient(sx, sy, 0, sx, sy, f.radius * 4);
+        glow.addColorStop(0, f.color + "40");
+        glow.addColorStop(1, "transparent");
+        ctx.fillStyle = glow;
+        ctx.fillRect(sx - f.radius * 4, sy - f.radius * 4, f.radius * 8, f.radius * 8);
+        // Core
         ctx.beginPath();
         ctx.arc(sx, sy, f.radius, 0, Math.PI * 2);
         ctx.fillStyle = f.color;
-        ctx.shadowColor = f.color;
-        ctx.shadowBlur = 8;
         ctx.fill();
-        ctx.shadowBlur = 0;
+        // Inner highlight
+        ctx.beginPath();
+        ctx.arc(sx - f.radius * 0.2, sy - f.radius * 0.2, f.radius * 0.4, 0, Math.PI * 2);
+        ctx.fillStyle = "rgba(255,255,255,0.5)";
+        ctx.fill();
       }
 
-      // Draw snakes
+      // Draw snakes with glow, gradient, and shine
       const allSnakes = [game.player, ...game.bots];
       for (const snake of allSnakes) {
         if (!snake.alive) continue;
-        // Draw body segments (back to front)
+        const isPlayer = snake.id === 0;
+
+        // Body glow (player only for performance)
+        if (isPlayer && snake.segments.length > 0) {
+          const h0 = snake.segments[0];
+          const gsx = h0.x - camX;
+          const gsy = h0.y - camY;
+          const bodyGlow = ctx.createRadialGradient(gsx, gsy, 0, gsx, gsy, 80);
+          bodyGlow.addColorStop(0, snake.color + "18");
+          bodyGlow.addColorStop(1, "transparent");
+          ctx.fillStyle = bodyGlow;
+          ctx.fillRect(gsx - 80, gsy - 80, 160, 160);
+        }
+
+        // Draw body segments (back to front) with stripe pattern
         for (let i = snake.segments.length - 1; i >= 0; i--) {
           const seg = snake.segments[i];
           if (seg.x < vpLeft || seg.x > vpRight || seg.y < vpTop || seg.y > vpBottom) continue;
           const sx = seg.x - camX;
           const sy = seg.y - camY;
-          const radius = SNAKE_RADIUS * (1 - i * 0.002);
+          const taper = 1 - (i / snake.segments.length) * 0.4;
+          const radius = Math.max(SNAKE_RADIUS * taper, 3);
+
+          // Shadow/outline
           ctx.beginPath();
-          ctx.arc(sx, sy, Math.max(radius, 4), 0, Math.PI * 2);
-          ctx.fillStyle = snake.color;
-          ctx.globalAlpha = i === 0 ? 1 : 0.85;
+          ctx.arc(sx, sy, radius + 1, 0, Math.PI * 2);
+          ctx.fillStyle = "rgba(0,0,0,0.3)";
           ctx.fill();
+
+          // Main body — alternating stripe brightness
+          ctx.beginPath();
+          ctx.arc(sx, sy, radius, 0, Math.PI * 2);
+          const bright = i % 4 < 2 ? 1 : 0.8;
+          ctx.globalAlpha = bright;
+          ctx.fillStyle = snake.color;
+          ctx.fill();
+
+          // Shine highlight on top
+          if (i % 3 === 0) {
+            ctx.beginPath();
+            ctx.arc(sx - radius * 0.2, sy - radius * 0.3, radius * 0.35, 0, Math.PI * 2);
+            ctx.fillStyle = "rgba(255,255,255,0.2)";
+            ctx.fill();
+          }
           ctx.globalAlpha = 1;
         }
-        // Draw eyes on head
+
+        // Head — larger with gradient
         const headSeg = snake.segments[0];
         const hsx = headSeg.x - camX;
         const hsy = headSeg.y - camY;
         if (hsx > -50 && hsx < w + 50 && hsy > -50 && hsy < h + 50) {
-          const eyeOffset = 4;
+          const headR = SNAKE_RADIUS * 1.2;
+          const headGrad = ctx.createRadialGradient(hsx - 2, hsy - 2, 0, hsx, hsy, headR);
+          headGrad.addColorStop(0, "#fff3");
+          headGrad.addColorStop(0.3, snake.color);
+          headGrad.addColorStop(1, snake.color + "cc");
+          ctx.beginPath();
+          ctx.arc(hsx, hsy, headR, 0, Math.PI * 2);
+          ctx.fillStyle = headGrad;
+          ctx.fill();
+
+          // Eyes
+          const eyeOffset = 5;
+          const eyeR = 3.5;
+          const pupilR = 2;
           const eyeAngle1 = snake.angle + 0.5;
           const eyeAngle2 = snake.angle - 0.5;
-          ctx.beginPath();
-          ctx.arc(hsx + Math.cos(eyeAngle1) * eyeOffset, hsy + Math.sin(eyeAngle1) * eyeOffset, 3, 0, Math.PI * 2);
-          ctx.fillStyle = "#fff";
-          ctx.fill();
-          ctx.beginPath();
-          ctx.arc(hsx + Math.cos(eyeAngle2) * eyeOffset, hsy + Math.sin(eyeAngle2) * eyeOffset, 3, 0, Math.PI * 2);
-          ctx.fillStyle = "#fff";
-          ctx.fill();
-          // Pupils
-          ctx.beginPath();
-          ctx.arc(hsx + Math.cos(eyeAngle1) * (eyeOffset + 1), hsy + Math.sin(eyeAngle1) * (eyeOffset + 1), 1.5, 0, Math.PI * 2);
-          ctx.fillStyle = "#000";
-          ctx.fill();
-          ctx.beginPath();
-          ctx.arc(hsx + Math.cos(eyeAngle2) * (eyeOffset + 1), hsy + Math.sin(eyeAngle2) * (eyeOffset + 1), 1.5, 0, Math.PI * 2);
-          ctx.fillStyle = "#000";
-          ctx.fill();
+          for (const ea of [eyeAngle1, eyeAngle2]) {
+            const ex = hsx + Math.cos(ea) * eyeOffset;
+            const ey = hsy + Math.sin(ea) * eyeOffset;
+            // White
+            ctx.beginPath();
+            ctx.arc(ex, ey, eyeR, 0, Math.PI * 2);
+            ctx.fillStyle = "#fff";
+            ctx.fill();
+            // Pupil
+            ctx.beginPath();
+            ctx.arc(ex + Math.cos(snake.angle) * 1.2, ey + Math.sin(snake.angle) * 1.2, pupilR, 0, Math.PI * 2);
+            ctx.fillStyle = "#111";
+            ctx.fill();
+            // Catchlight
+            ctx.beginPath();
+            ctx.arc(ex - 0.5, ey - 0.5, 1, 0, Math.PI * 2);
+            ctx.fillStyle = "rgba(255,255,255,0.8)";
+            ctx.fill();
+          }
         }
       }
 
-      // Minimap
+      // Minimap — rounded with glass effect
       const mmX = w - MINIMAP_SIZE - MINIMAP_MARGIN;
       const mmY = h - MINIMAP_SIZE - MINIMAP_MARGIN;
-      ctx.fillStyle = "rgba(0,0,0,0.6)";
-      ctx.fillRect(mmX, mmY, MINIMAP_SIZE, MINIMAP_SIZE);
-      ctx.strokeStyle = "rgba(255,255,255,0.2)";
+      const mmR = 8;
+      ctx.save();
+      ctx.beginPath();
+      ctx.roundRect(mmX, mmY, MINIMAP_SIZE, MINIMAP_SIZE, mmR);
+      ctx.fillStyle = "rgba(0,0,0,0.5)";
+      ctx.fill();
+      ctx.strokeStyle = "rgba(255,255,255,0.1)";
       ctx.lineWidth = 1;
-      ctx.strokeRect(mmX, mmY, MINIMAP_SIZE, MINIMAP_SIZE);
+      ctx.stroke();
+      ctx.clip();
 
-      // Minimap boundary circle
       const mmScale = MINIMAP_SIZE / WORLD_SIZE;
       ctx.beginPath();
       ctx.arc(mmX + MINIMAP_SIZE / 2, mmY + MINIMAP_SIZE / 2, WORLD_RADIUS * mmScale, 0, Math.PI * 2);
-      ctx.strokeStyle = "rgba(255,50,50,0.5)";
+      ctx.strokeStyle = "rgba(255,80,80,0.4)";
+      ctx.lineWidth = 1.5;
       ctx.stroke();
 
-      // Minimap snakes
       for (const snake of allSnakes) {
         if (!snake.alive) continue;
         const s = snake.segments[0];
         const mx = mmX + s.x * mmScale;
         const my = mmY + s.y * mmScale;
         ctx.beginPath();
-        ctx.arc(mx, my, snake.id === 0 ? 3 : 2, 0, Math.PI * 2);
+        ctx.arc(mx, my, snake.id === 0 ? 4 : 2, 0, Math.PI * 2);
         ctx.fillStyle = snake.color;
         ctx.fill();
+        if (snake.id === 0) {
+          ctx.beginPath();
+          ctx.arc(mx, my, 6, 0, Math.PI * 2);
+          ctx.strokeStyle = snake.color + "60";
+          ctx.lineWidth = 1;
+          ctx.stroke();
+        }
       }
+      ctx.restore();
 
-      // Score
-      ctx.fillStyle = "#fff";
-      ctx.font = "bold 24px Fraunces, serif";
+      // Score HUD — top center with glass background
+      const scoreText = `${game.player.score}`;
+      const lengthText = `Length: ${game.player.segments.length}`;
+      ctx.font = "bold 32px Fraunces, serif";
       ctx.textAlign = "center";
-      ctx.fillText(`Score: ${game.player.score}`, w / 2, 40);
+      const tw = Math.max(ctx.measureText(scoreText).width, 80) + 40;
+      ctx.fillStyle = "rgba(0,0,0,0.4)";
+      ctx.beginPath();
+      ctx.roundRect(w / 2 - tw / 2, 12, tw, 52, 12);
+      ctx.fill();
+      ctx.fillStyle = "#fff";
+      ctx.fillText(scoreText, w / 2, 46);
+      ctx.font = "500 11px Manrope, sans-serif";
+      ctx.fillStyle = "rgba(255,255,255,0.5)";
+      ctx.fillText(lengthText, w / 2, 58);
     };
 
     const loop = () => {
