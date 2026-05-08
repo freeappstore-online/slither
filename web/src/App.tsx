@@ -1,5 +1,5 @@
 import { useEffect, useRef, useCallback, useState } from "react";
-import { GameShell, GameTopbar } from "@freegamestore/games";
+import { GameShell, GameTopbar, GameAuth } from "@freegamestore/games";
 
 // --- Types ---
 interface Vec2 {
@@ -704,7 +704,9 @@ export default function App() {
   if (screen === "start") {
     return (
       <GameShell
-        topbar={<GameTopbar title="Slither" />}
+        topbar={<GameTopbar title="Slither"
+          actions={<GameAuth />}
+        />}
       >
         <div className="flex flex-col items-center justify-center h-full gap-6">
           <h1
