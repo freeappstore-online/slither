@@ -706,6 +706,7 @@ export default function App() {
       <GameShell
         topbar={<GameTopbar title="Slither"
           actions={<GameAuth />}
+          rules={<div><h3 style={{fontWeight:700}}>Slither</h3><h4 style={{fontWeight:600}}>Controls</h4><ul><li>Mouse/touch to steer</li><li>Click/hold or two-finger tap to boost (costs length)</li><li>Arrow keys also work</li></ul><h4 style={{fontWeight:600}}>Rules</h4><ul><li>Eat glowing orbs to grow longer</li><li>Avoid hitting other snakes</li><li>Use boost to speed up (costs length)</li><li>Last snake alive wins</li></ul></div>}
         />}
       >
         <div className="flex flex-col items-center justify-center h-full gap-6">
@@ -741,6 +742,7 @@ export default function App() {
           <GameTopbar
             title="Slither"
             stats={[{ label: "Score", value: finalScore, accent: true }]}
+            rules={<div><h3 style={{fontWeight:700}}>Slither</h3><h4 style={{fontWeight:600}}>Controls</h4><ul><li>Mouse/touch to steer</li><li>Click/hold or two-finger tap to boost (costs length)</li><li>Arrow keys also work</li></ul><h4 style={{fontWeight:600}}>Rules</h4><ul><li>Eat glowing orbs to grow longer</li><li>Avoid hitting other snakes</li><li>Use boost to speed up (costs length)</li><li>Last snake alive wins</li></ul></div>}
           />
         }
       >
