@@ -1,5 +1,5 @@
 import { useEffect, useRef, useCallback, useState } from "react";
-import { GameShell, GameTopbar } from "@freegamestore/games";
+import { GameShell, GameTopbar, GameAuth } from "@freegamestore/games";
 
 // --- Types ---
 interface Vec2 {
